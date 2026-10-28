@@ -1,0 +1,30 @@
+# Multi-stage C++20 build
+FROM gcc:14-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY CMakeLists.txt .
+COPY include/ include/
+COPY src/ src/
+COPY tests/ tests/
+
+RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build \
+    && ctest --test-dir build --output-on-failure
+
+# Production runtime container
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/apex
+COPY --from=builder /app/build/apex_edge /opt/apex/apex_edge
+
+ENTRYPOINT ["/opt/apex/apex_edge"]
+CMD ["--host", "mosquitto", "--port", "1883"]

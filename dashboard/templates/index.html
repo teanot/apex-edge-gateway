@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApexEdge | Industrial Edge IoT & Anomaly Monitor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151e2e', 950: '#0b1120' },
+                        brand: { 500: '#06b6d4', 600: '#0891b2' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .animate-pulse-slow { animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Top Navigation -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-cyan-500/20">
+                AE
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white flex items-center space-x-2">
+                    <span>ApexEdge Sentinel</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono">v1.0.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">High-Performance C++20 Edge Telemetry & Real-Time Anomaly Engine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div id="ws-status" class="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span class="text-slate-300">Connecting...</span>
+            </div>
+            <a href="https://github.com/teanot/apex-edge-gateway" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5 text-slate-300 hover:text-white">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+                <span>GitHub Repository</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+        <!-- Metrics Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Processed Records</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metric-total" class="text-2xl font-bold text-white font-mono">0</span>
+                    <span id="metric-throughput" class="text-xs text-emerald-400 font-mono">0.0 rec/s</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Anomalies Detected</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metric-anomalies" class="text-2xl font-bold text-rose-400 font-mono">0</span>
+                    <span id="metric-anomaly-rate" class="text-xs text-rose-400 font-mono">0.0% rate</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Edge Nodes</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metric-nodes" class="text-2xl font-bold text-cyan-400 font-mono">0</span>
+                    <span class="text-xs text-slate-400">4 telemetry ch/node</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Edge Resilience Buffer</div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span class="text-lg font-bold text-emerald-400 font-mono">Zero Data Loss</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-400">WAL Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Vibration Chart -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-white">Vibration RMS Telemetry</h2>
+                        <p class="text-xs text-slate-400">High-frequency mechanical oscillation monitoring (mm/s)</p>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono">ISO 10816</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="vibrationChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Temperature Chart -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-white">Bearing & Core Temperature</h2>
+                        <p class="text-xs text-slate-400">Thermal gradient & dissipation monitoring (°C)</p>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-400 font-mono">Welford Z-Score</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Power & Voltage Section -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-sm font-semibold text-white">Active Power & Grid Voltage Dynamics</h2>
+                    <p class="text-xs text-slate-400">Three-phase electrical load tracking (kW & V)</p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 font-mono">3-Phase Telemetry</span>
+            </div>
+            <div class="h-56">
+                <canvas id="powerChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Anomaly Event Log -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <h2 class="text-sm font-semibold text-white">Real-Time Anomaly & Outlier Stream</h2>
+                </div>
+                <span class="text-xs text-slate-400">Trigger threshold: Z-Score &ge; 3.0&sigma;</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-800/60 text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-slate-800">
+                        <tr>
+                            <th class="px-4 py-3">Timestamp</th>
+                            <th class="px-4 py-3">Device Node</th>
+                            <th class="px-4 py-3">Metric</th>
+                            <th class="px-4 py-3">Value</th>
+                            <th class="px-4 py-3">Z-Score Deviation</th>
+                            <th class="px-4 py-3">Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-table-body" class="divide-y divide-slate-800/60 font-mono">
+                        <tr>
+                            <td colspan="6" class="px-4 py-6 text-center text-slate-500 italic">Listening for telemetry anomalies from ApexEdge gateway...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900 px-6 py-4 text-center text-xs text-slate-500">
+        ApexEdge Industrial IoT Telemetry Gateway &bull; Designed & Built by <span class="text-slate-300 font-medium">Marko Poraiko</span> &bull; HAW Hamburg
+    </footer>
+
+    <!-- WebSocket & Charting Logic -->
+    <script>
+        const chartColors = ['#06b6d4', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
+        const deviceSeries = {};
+
+        function createTimeSeriesChart(canvasId, yLabel) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', maxTicksLimit: 8 }
+                        },
+                        y: {
+                            title: { display: true, text: yLabel, color: '#94a3b8' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        const vibChart = createTimeSeriesChart('vibrationChart', 'Vibration RMS (mm/s)');
+        const tempChart = createTimeSeriesChart('temperatureChart', 'Temperature (°C)');
+        const powerChart = createTimeSeriesChart('powerChart', 'Power (kW)');
+
+        function updateChartDataset(chart, label, timeStr, value, isAnomaly) {
+            let ds = chart.data.datasets.find(d => d.label === label);
+            if (!ds) {
+                const color = chartColors[chart.data.datasets.length % chartColors.length];
+                ds = {
+                    label: label,
+                    data: [],
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    pointBackgroundColor: color,
+                    tension: 0.25
+                };
+                chart.data.datasets.push(ds);
+            }
+
+            if (!chart.data.labels.includes(timeStr)) {
+                chart.data.labels.push(timeStr);
+                if (chart.data.labels.length > 25) chart.data.labels.shift();
+            }
+
+            ds.data.push(value);
+            if (ds.data.length > 25) ds.data.shift();
+
+            if (isAnomaly) {
+                ds.pointRadius = ds.data.map((_, i) => i === ds.data.length - 1 ? 6 : 2);
+            }
+
+            chart.update();
+        }
+
+        function prependAlertRow(alert) {
+            const tbody = document.getElementById('alerts-table-body');
+            const date = new Date(alert.timestamp_ms);
+            const timeStr = date.toLocaleTimeString();
+
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-800/40 transition";
+            tr.innerHTML = `
+                <td class="px-4 py-2.5 text-slate-400">${timeStr}</td>
+                <td class="px-4 py-2.5 text-cyan-400 font-semibold">${alert.device_id}</td>
+                <td class="px-4 py-2.5 text-slate-200">${alert.metric_name}</td>
+                <td class="px-4 py-2.5 text-white font-bold">${alert.value} ${alert.unit}</td>
+                <td class="px-4 py-2.5 text-rose-400">${alert.anomaly_score.toFixed(2)} &sigma;</td>
+                <td class="px-4 py-2.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${alert.anomaly_score > 5.0 ? 'bg-rose-950 border border-rose-800 text-rose-400' : 'bg-amber-950 border border-amber-800 text-amber-400'}">
+                        ${alert.anomaly_score > 5.0 ? 'CRITICAL SPIKE' : 'WARNING'}
+                    </span>
+                </td>
+            `;
+
+            if (tbody.children.length === 1 && tbody.children[0].innerText.includes("Listening")) {
+                tbody.innerHTML = '';
+            }
+            tbody.insertBefore(tr, tbody.firstChild);
+
+            if (tbody.children.length > 15) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+
+        // Periodic API polling for high-level telemetry stats
+        async function refreshStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('metric-total').innerText = data.total_received.toLocaleString();
+                document.getElementById('metric-throughput').innerText = data.ingestion_rate_ops + ' rec/s';
+                document.getElementById('metric-anomalies').innerText = data.total_anomalies.toLocaleString();
+                document.getElementById('metric-anomaly-rate').innerText = data.anomaly_rate_pct + '% rate';
+                document.getElementById('metric-nodes').innerText = data.active_devices_count;
+            } catch (e) {}
+        }
+        setInterval(refreshStats, 2000);
+
+        // WebSocket Connection
+        function connectWS() {
+            const statusEl = document.getElementById('ws-status');
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-emerald-400 font-medium">Live Connected</span>`;
+                statusEl.className = "flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800 text-xs";
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'telemetry') {
+                    const item = msg.data;
+                    const timeStr = new Date(item.timestamp_ms).toLocaleTimeString();
+                    const label = `${item.device_id}`;
+
+                    if (item.metric_name.includes('vibration')) {
+                        updateChartDataset(vibChart, label, timeStr, item.value, item.is_anomaly);
+                    } else if (item.metric_name.includes('temp')) {
+                        updateChartDataset(tempChart, label, timeStr, item.value, item.is_anomaly);
+                    } else if (item.metric_name.includes('power')) {
+                        updateChartDataset(powerChart, label, timeStr, item.value, item.is_anomaly);
+                    }
+
+                    if (item.is_anomaly) {
+                        prependAlertRow(item);
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-slate-400">Reconnecting...</span>`;
+                statusEl.className = "flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs";
+                setTimeout(connectWS, 2000);
+            };
+        }
+
+        connectWS();
+    </script>
+</body>
+</html>
