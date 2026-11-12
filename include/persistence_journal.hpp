@@ -29,7 +29,9 @@ public:
 private:
     std::string file_path_;
     mutable std::mutex mutex_;
+    std::ofstream append_stream_;
     uint64_t pending_count_{0};
 };
 
 } // namespace apex
+
