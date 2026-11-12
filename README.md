@@ -8,7 +8,7 @@
 
 An ultra-low latency, memory-bounded IoT telemetry gateway and streaming anomaly detection engine designed for industrial edge nodes, embedded microprocessors, and smart-grid controllers.
 
-Built from scratch in **Modern C++20** with zero heap allocations on the hot path, a cache-line aligned lock-free SPSC ring buffer, real-time Welford Z-score statistical outlier detection, and an append-only binary journal for offline network resilience. Includes a Python/FastAPI WebSocket telemetry analytics dashboard and containerized deployment.
+Built from scratch in **Modern C++20** with pre-allocated SPSC ring buffer, a cache-line aligned lock-free SPSC ring buffer, real-time Welford Z-score statistical outlier detection, and an append-only binary journal for offline network resilience. Includes a Python/FastAPI WebSocket telemetry analytics dashboard and containerized deployment.
 
 ---
 
@@ -59,7 +59,7 @@ flowchart LR
    - Calculates real-time standardized deviation scores ($Z$-scores) to flag bearing wear, vibration spikes, or thermal runaways within milliseconds of occurrence.
 4. **Resilient Write-Ahead Logging (WAL)**:
    - When the edge node loses internet/broker connectivity, telemetry packets automatically divert to an append-only binary journal file (`apex_journal.bin`).
-   - A dedicated background replay worker continuously monitors connectivity and replays cached packets in paced batches upon reconnect, guaranteeing zero data loss.
+   - A dedicated background replay worker continuously monitors connectivity and replays cached packets in paced batches upon reconnect, append-only binary persistence queue for offline buffering and replay on reconnect
 5. **Cross-Platform & Portable**:
    - Clean socket abstractions running seamlessly across Linux (POSIX) and Windows (Winsock2).
    - Fully dockerized via multi-stage builds (`Dockerfile.gateway`, `Dockerfile.dashboard`, `docker-compose.yml`).
@@ -75,7 +75,6 @@ Benchmark executed on modern x86_64 hardware with `-O3` compiler optimizations:
 | **Throughput** | **7,627,675 records/sec** | Sustained concurrent producer/consumer streaming |
 | **Operation Latency** | **131.10 ns / op** | Ingestion + lock-free queueing + anomaly detection |
 | **Memory Footprint** | **< 8.5 MB RSS** | Fixed-capacity ring buffer and zero heap fragmentation |
-| **Cache Miss Rate** | **Near Zero** | Fixed 97-byte packed structs and cache-line separation |
 
 Run the benchmark yourself:
 ```bash
@@ -186,24 +185,7 @@ $ ./build/tests/apex_tests
 =================================================================
 Results: 7 passed, 0 failed
 ```
-
----
-
-## CV & Resume Highlights
-
-Here are pre-formatted bullet points you can copy and paste directly into your CV:
-
-```text
-ApexEdge: High-Performance Edge IoT Gateway & Anomaly Detector | Modern C++20, Python, Docker, MQTT
-• Architected a high-throughput edge telemetry gateway in Modern C++20 capable of processing 7.6M+ sensor events/sec with sub-microsecond latency.
-• Engineered a cache-aligned, lock-free SPSC ring buffer with zero runtime heap allocations, isolating CPU core cache lines to prevent false sharing.
-• Implemented an online streaming anomaly detection engine utilizing Welford’s algorithm and Exponential Moving Average (EMA) Z-scores to flag mechanical and thermal faults.
-• Designed an offline Write-Ahead Logging (WAL) binary persistence mechanism that buffers sensor telemetry during network drops and automatically replays upon reconnection.
-• Built a containerized Python/FastAPI dashboard streaming live telemetry over WebSockets with responsive Chart.js time-series visualizations.
-```
-
----
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
