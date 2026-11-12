@@ -8,23 +8,23 @@
 #include <chrono>
 #include <concepts>
 #include <array>
+#include <type_traits>
 
 namespace apex {
 
-#pragma pack(push, 1)
 struct TelemetryRecord {
     uint64_t timestamp_ms{0};
+    double value{0.0};
+    double anomaly_score{0.0};
     char device_id[32]{0};
     char metric_name[32]{0};
-    double value{0.0};
     char unit[16]{0};
     uint8_t is_anomaly{0}; // 0 = normal, 1 = anomaly
-    double anomaly_score{0.0}; // Z-score or deviation magnitude
 
     TelemetryRecord() = default;
 
-        TelemetryRecord(uint64_t ts, std::string_view dev, std::string_view metric, double val, std::string_view u)
-        : timestamp_ms(ts), value(val), is_anomaly(0), anomaly_score(0.0) {
+    TelemetryRecord(uint64_t ts, std::string_view dev, std::string_view metric, double val, std::string_view u)
+        : timestamp_ms(ts), value(val), anomaly_score(0.0), is_anomaly(0) {
         set_device_id(dev);
         set_metric_name(metric);
         set_unit(u);
@@ -62,9 +62,9 @@ struct TelemetryRecord {
         return oss.str();
     }
 };
-#pragma pack(pop)
 
 static_assert(sizeof(TelemetryRecord) <= 128, "TelemetryRecord must be compact and cache-friendly");
+static_assert(std::is_trivially_copyable_v<TelemetryRecord>, "TelemetryRecord must be trivially copyable");
 
 // C++20 Concept
 template <typename T>
