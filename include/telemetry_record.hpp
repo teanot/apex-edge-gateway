@@ -23,26 +23,29 @@ struct TelemetryRecord {
 
     TelemetryRecord() = default;
 
-    TelemetryRecord(uint64_t ts, const std::string& dev, const std::string& metric, double val, const std::string& u)
+        TelemetryRecord(uint64_t ts, std::string_view dev, std::string_view metric, double val, std::string_view u)
         : timestamp_ms(ts), value(val), is_anomaly(0), anomaly_score(0.0) {
         set_device_id(dev);
         set_metric_name(metric);
         set_unit(u);
     }
 
-    void set_device_id(const std::string& dev) {
-        std::strncpy(device_id, dev.c_str(), sizeof(device_id) - 1);
-        device_id[sizeof(device_id) - 1] = '\0';
+    void set_device_id(std::string_view dev) noexcept {
+        const size_t len = std::min(dev.size(), sizeof(device_id) - 1);
+        std::copy_n(dev.data(), len, device_id);
+        device_id[len] = '\0';
     }
 
-    void set_metric_name(const std::string& metric) {
-        std::strncpy(metric_name, metric.c_str(), sizeof(metric_name) - 1);
-        metric_name[sizeof(metric_name) - 1] = '\0';
+    void set_metric_name(std::string_view metric) noexcept {
+        const size_t len = std::min(metric.size(), sizeof(metric_name) - 1);
+        std::copy_n(metric.data(), len, metric_name);
+        metric_name[len] = '\0';
     }
 
-    void set_unit(const std::string& u) {
-        std::strncpy(unit, u.c_str(), sizeof(unit) - 1);
-        unit[sizeof(unit) - 1] = '\0';
+    void set_unit(std::string_view u) noexcept {
+        const size_t len = std::min(u.size(), sizeof(unit) - 1);
+        std::copy_n(u.data(), len, unit);
+        unit[len] = '\0';
     }
 
     [[nodiscard]] std::string to_json() const {
@@ -79,3 +82,4 @@ inline uint64_t current_time_ms() {
 }
 
 } // namespace apex
+
