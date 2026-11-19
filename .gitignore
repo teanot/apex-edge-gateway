@@ -27,6 +27,7 @@ Makefile
 # Python cache & virtual environments
 __pycache__/
 *.pyc
+.pytest_cache/
 venv/
 .venv/
 env/
@@ -37,3 +38,4 @@ env/
 *.swp
 *~
 .DS_Store
+

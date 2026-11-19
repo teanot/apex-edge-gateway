@@ -30,3 +30,21 @@ jobs:
 
     - name: Run Throughput Benchmark
       run: ./build/apex_edge --benchmark
+
+  python-dashboard-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Dashboard & Test Dependencies
+      run: pip install -r dashboard/requirements.txt pytest httpx
+
+    - name: Run Pytest Suite (Unit, Regression, E2E)
+      run: pytest tests/test_dashboard.py -v
+

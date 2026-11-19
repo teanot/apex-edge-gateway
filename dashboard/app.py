@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import struct
 import sys
 import threading
 import time
@@ -27,6 +28,9 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # In-memory rolling telemetry cache
 HISTORY_LIMIT = 50
+JOURNAL_RECORD_STRUCT = struct.Struct("<Qdd32s32s16sB7x")
+JOURNAL_RECORD_SIZE = JOURNAL_RECORD_STRUCT.size  # 112 bytes, matching C++ TelemetryRecord
+
 telemetry_history: Dict[str, deque] = {}
 recent_alerts: deque = deque(maxlen=20)
 active_connections: List[WebSocket] = []
@@ -37,6 +41,22 @@ stats = {
     "active_devices": set(),
     "start_time": time.time(),
 }
+
+
+def parse_journal_record(chunk: bytes) -> dict:
+    """Decode one fixed-size C++ TelemetryRecord binary entry."""
+    if len(chunk) != JOURNAL_RECORD_SIZE:
+        raise ValueError(f"Expected {JOURNAL_RECORD_SIZE}-byte record, got {len(chunk)} bytes")
+    ts, val, anom_score, dev_raw, metric_raw, unit_raw, is_anom = JOURNAL_RECORD_STRUCT.unpack(chunk)
+    return {
+        "timestamp_ms": ts,
+        "device_id": dev_raw.split(b"\x00", 1)[0].decode("ascii", errors="ignore"),
+        "metric_name": metric_raw.split(b"\x00", 1)[0].decode("ascii", errors="ignore"),
+        "value": round(val, 3),
+        "unit": unit_raw.split(b"\x00", 1)[0].decode("ascii", errors="ignore"),
+        "is_anomaly": bool(is_anom),
+        "anomaly_score": round(anom_score, 2),
+    }
 
 def record_telemetry(payload: dict):
     stats["total_received"] += 1
@@ -114,26 +134,10 @@ def background_telemetry_listener():
                 if current_size > last_pos:
                     with open(journal_path, "rb") as f:
                         f.seek(last_pos)
-                        # Read 97-byte structs
-                        while chunk := f.read(97):
-                            if len(chunk) < 97:
+                        while chunk := f.read(JOURNAL_RECORD_SIZE):
+                            if len(chunk) < JOURNAL_RECORD_SIZE:
                                 break
-                            # Parse raw struct
-                            import struct
-                            ts, dev_raw, metric_raw, val, unit_raw, is_anom, anom_score = struct.unpack("<Q32s32sd16sBd", chunk)
-                            dev = dev_raw.split(b'\x00')[0].decode('ascii', errors='ignore')
-                            metric = metric_raw.split(b'\x00')[0].decode('ascii', errors='ignore')
-                            unit = unit_raw.split(b'\x00')[0].decode('ascii', errors='ignore')
-                            
-                            payload = {
-                                "timestamp_ms": ts,
-                                "device_id": dev,
-                                "metric_name": metric,
-                                "value": round(val, 3),
-                                "unit": unit,
-                                "is_anomaly": bool(is_anom),
-                                "anomaly_score": round(anom_score, 2)
-                            }
+                            payload = parse_journal_record(chunk)
                             record_telemetry(payload)
                             if loop and loop.is_running():
                                 asyncio.run_coroutine_threadsafe(
@@ -154,7 +158,7 @@ def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.get("/api/stats")
 async def get_stats():
@@ -192,3 +196,4 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
+
